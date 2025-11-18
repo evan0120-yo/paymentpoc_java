@@ -1,6 +1,9 @@
 package com.citrus.payin.service.query;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.springframework.stereotype.Service;
 
@@ -25,20 +28,28 @@ public class PayinQueryService {
 	private final PayinAttemptDao payinAttemptDao;
 	
 	public PayinBo queryPayinBo(String refId) {
-		List<PayinRecord> payinRecordList = payinRecordDao.findByRefId(refId);
-		if(payinRecordList.isEmpty()) {
+		try(ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()){
+			Future<List<PayinRecord>> payinRecordListFuture = executor.submit(() -> payinRecordDao.findByRefId(refId));
+			Future<List<PayinAttempt>> payinAttemptListFuture = executor.submit(() -> payinAttemptDao.findByRefIdWithPaSuccess(refId));
+			
+			List<PayinRecord> payinRecordList = payinRecordListFuture.get();
+			if(payinRecordList.isEmpty()) {
+				throw new DataNotFoundException("查不到payinRecordList");
+			}
+			List<PayinAttempt> payinAttemptList = payinAttemptListFuture.get();
+			if(payinAttemptList.isEmpty()) {
+				throw new DataNotFoundException("查不到payinAttemptList");
+			}
+			return PayinBo.builder()
+					.payinRecord(payinRecordList.get(0))
+					.payinAttempt(payinAttemptList.get(0))
+					.build();
+		} catch(DataNotFoundException de) {
 			return PayinBo.builder().build();
+		} catch (Exception e) {
+			System.out.println(e);
+			throw new DataErrorException("並行查詢被中斷", e);
 		}
-		PayinRecord payinRecord = payinRecordList.get(0);
-		List<PayinAttempt> payinAttemptList = payinAttemptDao.findByRefIdWithPaSuccess(refId);
-		if(payinAttemptList.isEmpty()) {
-			throw new DataNotFoundException();
-		}
-		PayinAttempt payinAttempt = payinAttemptList.get(0);
-		return PayinBo.builder()
-				.payinRecord(payinRecord)
-				.payinAttempt(payinAttempt)
-				.build();
 	}
 	
 	public PayinBo querySyncOrder(SyncOrderDto dto) {
