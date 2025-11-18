@@ -3,6 +3,7 @@ package com.citrus.payin.usecase.store;
 import java.math.BigDecimal;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.citrus.payin.event.PayinEvent;
 import com.citrus.payin.factory.callback.object.dto.CallbackPaDto;
@@ -11,11 +12,14 @@ import com.citrus.payin.object.bo.PayinBo;
 import com.citrus.payin.object.dto.CallbackDto;
 import com.citrus.payin.object.dto.ExecutePaDto;
 import com.citrus.payin.object.dto.SyncOrderDto;
+import com.citrus.payin.object.event.FireCallbackFailedEvent;
+import com.citrus.payin.object.event.FireCallbackSucceededEvent;
 import com.citrus.payin.object.event.FirePaValidatedEvent;
 import com.citrus.payin.object.req.InitiatePaymentReq;
+import com.citrus.payin.service.query.PayinQueryService;
+import com.citrus.payin.service.store.PayinStoreService;
 import com.fasterxml.uuid.Generators;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -23,8 +27,10 @@ import lombok.RequiredArgsConstructor;
 public class PayinPaStoreUsecase {
 	
     private final PayinPaRouteUsecase payinPaRouteUsecase;
-    private final CallbackPaUsecase callbackPaUsecase;
     private final PayinEvent payinEvent;
+    private final TransactionTemplate transactionTemplate;
+	private final PayinStoreService payinStoreService;
+	private final PayinQueryService payinQueryService;
 
 	public PaPaymentDto initiatePaPayment(InitiatePaymentReq req) {
 		String orderGid = Generators.timeBasedEpochGenerator().generate().toString();
@@ -64,20 +70,47 @@ public class PayinPaStoreUsecase {
 	
 	public void handlePaCallback(CallbackDto dto) {
 		// 1. apapter to handle callback
-		CallbackPaDto preDto = payinPaRouteUsecase.handleCallbackData(dto);
-		// 2. update payin
-		PayinBo payinBo = callbackPaUsecase.updatePaCallbackPreCheck(preDto);
-		if(!payinBo.hasOrder()) {
-			return;
-		}
-		// 3. adapter -> handle check callback
+		final CallbackPaDto callbackPaDto = payinPaRouteUsecase.handleCallbackData(dto);
+		PayinBo payinBo = transactionTemplate.execute(status -> {
+			// 2. findpayin record and attempt
+			PayinBo bo = payinQueryService.queryPayinBo(callbackPaDto.getRefId());
+			if(!bo.hasOrder()) {
+				// 3-1. save retry callback
+				FireCallbackFailedEvent event = FireCallbackFailedEvent.builder()
+						.refId(callbackPaDto.getRefId())
+						.channel(callbackPaDto.getChannel())
+						.rawBody(callbackPaDto.getRawBody())
+						.headers(callbackPaDto.getHeaders())
+						.build();
+				payinEvent.fireCallbackFailed(event);
+				// 3-2. return
+				return bo;
+			}
+			// 4. update payin record and attempt
+			bo = payinStoreService.updatePaCallbackPreCheckBo(bo);
+			// 5. insert log
+			return payinStoreService.savePaCallbackLog(bo, callbackPaDto);
+		});
+		// 7. adapter -> handle check callback
 		SyncOrderDto syncOrderDto = SyncOrderDto.builder()
 				.refId(payinBo.getPayinRecord().getRefId())
 				.callbackChannel(dto.getCallbackChannel())
 				.payinBo(payinBo)
 				.build();
-		CallbackPaDto callbackPaDto = payinPaRouteUsecase.syncOrderStatus(syncOrderDto);
-		// 4. adapter to check recharge and update payin
-		callbackPaUsecase.syncOrderStatus(syncOrderDto, callbackPaDto);
+		final CallbackPaDto callbackPaDtoSync = payinPaRouteUsecase.syncOrderStatus(syncOrderDto);
+		
+		transactionTemplate.execute(status -> {
+			// 8. find and guard payin bo
+			PayinBo bo = payinQueryService.querySyncOrder(syncOrderDto);
+			// 9. update payin record
+			bo = payinStoreService.updatePaCallbackBo(bo, callbackPaDtoSync);
+			// 10. publish > save outbox
+			FireCallbackSucceededEvent event = FireCallbackSucceededEvent.builder()
+					.refId(syncOrderDto.getRefId())
+					.build();
+			payinEvent.fireCallbackSucceeded(event);
+			return null;
+		});
 	}
+	
 }
