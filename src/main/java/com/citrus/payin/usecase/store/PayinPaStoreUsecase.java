@@ -1,10 +1,13 @@
 package com.citrus.payin.usecase.store;
 
 import java.math.BigDecimal;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.citrus.common.exception.DataErrorException;
 import com.citrus.payin.event.PayinEvent;
 import com.citrus.payin.factory.callback.object.dto.CallbackPaDto;
 import com.citrus.payin.factory.channel.object.dto.PaPaymentDto;
@@ -40,31 +43,36 @@ public class PayinPaStoreUsecase {
 		String refId = req.getRefId();
 		String rechargeInfo = req.getRechargeInfo();
 		BigDecimal actualPaymentAmount = req.getActualPaymentAmount();
-		// 1. user是否存在(這裡跳過)
-		// 2. 檢查金額是否正確並且檢查billid是否存在
-		// 3. init paycore order單
-		FirePaValidatedEvent event = FirePaValidatedEvent.builder()
-				.userGid(userGid)
-				.orderGid(orderGid)
-				.rechargeGid(rechargeGid)
-				.refId(refId)
-				.actualPaymentAmount(actualPaymentAmount)
-				.billAmount(new BigDecimal("199.00"))
-				.rechargeInfo(rechargeInfo)
-				.build();
-		payinEvent.firePaValidated(event);
-		// 3. choice channel -> call甲方 and save payin
-		ExecutePaDto executePaDto = ExecutePaDto.builder()
-				.orderGid(orderGid)
-				.rechargeGid(rechargeGid)
-				.userGid(userGid)
-				.billGid(req.getBillGid())
-				.refId(refId)
-				.actualPaymentAmount(actualPaymentAmount)
-				.rechargeInfo(rechargeInfo)
-				.build();
-		PaPaymentDto paPaymentDto = payinPaRouteUsecase.executePa(executePaDto);
-		// 4. make return resp
+		PaPaymentDto paPaymentDto = new PaPaymentDto();
+		try(ExecutorService execute = Executors.newVirtualThreadPerTaskExecutor()){
+			// 1. user是否存在(這裡跳過)
+			// 2. 檢查金額是否正確並且檢查billid是否存在
+			// 3. init paycore order單
+			FirePaValidatedEvent event = FirePaValidatedEvent.builder()
+					.userGid(userGid)
+					.orderGid(orderGid)
+					.rechargeGid(rechargeGid)
+					.refId(refId)
+					.actualPaymentAmount(actualPaymentAmount)
+					.billAmount(new BigDecimal("199.00"))
+					.rechargeInfo(rechargeInfo)
+					.build();
+			payinEvent.firePaValidated(event);
+			// 3. choice channel -> call甲方 and save payin
+			ExecutePaDto executePaDto = ExecutePaDto.builder()
+					.orderGid(orderGid)
+					.rechargeGid(rechargeGid)
+					.userGid(userGid)
+					.billGid(req.getBillGid())
+					.refId(refId)
+					.actualPaymentAmount(actualPaymentAmount)
+					.rechargeInfo(rechargeInfo)
+					.build();
+			payinPaRouteUsecase.executePa(executePaDto);
+		} catch(Exception e) {
+			e.printStackTrace();
+			throw new DataErrorException("並行查詢出現error!");
+		}
 		return paPaymentDto;
 	}
 	

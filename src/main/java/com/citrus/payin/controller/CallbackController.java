@@ -8,13 +8,11 @@ import java.util.stream.Collectors;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.citrus.payin.factory.callback.PayinCallbackEnum;
 import com.citrus.payin.object.dto.CallbackDto;
-import com.citrus.payin.usecase.store.CallbackPaUsecase;
 import com.citrus.payin.usecase.store.PayinPaStoreUsecase;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,7 +39,6 @@ public class CallbackController {
 	                                                 headerName -> headerName,
 	                                                 req::getHeader
 	                                             ));
-
 	    // 使用您原有的命名和邏輯，建立 DTO
 	    CallbackDto dto = CallbackDto.builder()
 	            .rawBody(rawBody)

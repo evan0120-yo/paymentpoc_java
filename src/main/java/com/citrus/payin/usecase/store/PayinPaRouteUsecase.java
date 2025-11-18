@@ -20,8 +20,6 @@ import com.citrus.payin.model.PayinRecord;
 import com.citrus.payin.object.dto.CallbackDto;
 import com.citrus.payin.object.dto.ExecutePaDto;
 import com.citrus.payin.object.dto.SyncOrderDto;
-import com.citrus.payin.object.event.FirePaValidatedEvent;
-import com.citrus.payin.object.req.InitiatePaymentReq;
 import com.citrus.payin.service.store.PayinRouteStoreService;
 
 import lombok.RequiredArgsConstructor;
