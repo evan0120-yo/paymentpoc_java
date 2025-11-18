@@ -34,18 +34,16 @@ public class PayinQueryService {
 			
 			List<PayinRecord> payinRecordList = payinRecordListFuture.get();
 			if(payinRecordList.isEmpty()) {
-				throw new DataNotFoundException("查不到payinRecordList");
+				return PayinBo.builder().build();
 			}
 			List<PayinAttempt> payinAttemptList = payinAttemptListFuture.get();
 			if(payinAttemptList.isEmpty()) {
-				throw new DataNotFoundException("查不到payinAttemptList");
+				return PayinBo.builder().build();
 			}
 			return PayinBo.builder()
 					.payinRecord(payinRecordList.get(0))
 					.payinAttempt(payinAttemptList.get(0))
 					.build();
-		} catch(DataNotFoundException de) {
-			return PayinBo.builder().build();
 		} catch (Exception e) {
 			System.out.println(e);
 			throw new DataErrorException("並行查詢被中斷", e);
