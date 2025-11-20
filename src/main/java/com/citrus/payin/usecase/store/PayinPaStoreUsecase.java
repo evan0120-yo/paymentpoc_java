@@ -1,13 +1,10 @@
 package com.citrus.payin.usecase.store;
 
 import java.math.BigDecimal;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.citrus.common.exception.DataErrorException;
 import com.citrus.payin.event.PayinEvent;
 import com.citrus.payin.factory.callback.object.dto.CallbackPaDto;
 import com.citrus.payin.factory.channel.object.dto.PaPaymentDto;
