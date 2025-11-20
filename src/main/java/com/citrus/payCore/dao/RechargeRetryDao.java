@@ -1,11 +1,9 @@
 package com.citrus.payCore.dao;
 
-import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
-import com.citrus.common.exception.DataErrorException;
 import com.citrus.payCore.enums.RechargeRetryStatusEnum;
 import com.citrus.payCore.model.RechargeRetry;
 import com.citrus.payCore.repository.RechargeRetryRepository;
@@ -19,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 public class RechargeRetryDao {
 
 	private final RechargeRetryRepository rechargeRetryRepository;
-	
+
 	public RechargeRetry save(RechargeRetry rechargeRetry) {
 		Timestamp now = Timestamp.now();
 		rechargeRetry.setRechargeRetryId(Generators.timeBasedEpochGenerator().generate().toString());
@@ -30,18 +28,18 @@ public class RechargeRetryDao {
 		rechargeRetryRepository.save(rechargeRetry);
 		return rechargeRetry;
 	}
-	
+
 	public RechargeRetry update(RechargeRetry rechargeRetry) {
 		Timestamp now = Timestamp.now();
 		rechargeRetry.setUpdateTime(now);
 		rechargeRetryRepository.save(rechargeRetry);
 		return rechargeRetry;
 	}
-	
+
 	public void delete(RechargeRetry rechargeRetry) {
 		rechargeRetryRepository.delete(rechargeRetry);
 	}
-	
+
 	public Optional<RechargeRetry> findByRefId(String refId) {
 		return rechargeRetryRepository.findByRefId(refId);
 	}

@@ -1,7 +1,5 @@
 package com.citrus.payin.dao;
 
-import java.time.LocalDateTime;
-
 import org.springframework.stereotype.Component;
 
 import com.citrus.payin.model.PayinLog;
@@ -16,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 public class PayinLogDao {
 
 	private final PayinLogRepository payinLogRepository;
-	
+
 	public PayinLog save(PayinLog payinLog) {
 		Timestamp now = Timestamp.now();
 		payinLog.setCreateTime(now);

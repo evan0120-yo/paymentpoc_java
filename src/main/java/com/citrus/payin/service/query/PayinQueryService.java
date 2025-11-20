@@ -8,7 +8,6 @@ import java.util.concurrent.Future;
 import org.springframework.stereotype.Service;
 
 import com.citrus.common.exception.DataErrorException;
-import com.citrus.common.exception.DataNotFoundException;
 import com.citrus.payin.dao.PayinAttemptDao;
 import com.citrus.payin.dao.PayinRecordDao;
 import com.citrus.payin.enums.PayinAttemptStatusEnum;
@@ -55,7 +54,6 @@ public class PayinQueryService {
 		// 1. get payinBo
 		if(payinBo == null) {
 			if(dto.getRefId() == null) {
-				
 				throw new DataErrorException();
 			} else {
 				payinBo = queryPayinBo(dto.getRefId());

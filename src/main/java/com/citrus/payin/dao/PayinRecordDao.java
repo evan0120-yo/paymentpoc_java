@@ -1,6 +1,5 @@
 package com.citrus.payin.dao;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Component;
@@ -19,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 public class PayinRecordDao {
 
 	private final PayinRecordRepository payinRecordRepository;
-	
+
 	public PayinRecord save(PayinRecord payinRecord) {
 		Timestamp now = Timestamp.now();
 		payinRecord.setPayinRecordId(Generators.timeBasedEpochGenerator().generate().toString());
@@ -28,17 +27,17 @@ public class PayinRecordDao {
 		payinRecord.setUpdateTime(now);
 		return payinRecordRepository.save(payinRecord);
 	}
-	
+
 	public PayinRecord update(PayinRecord payinRecord) {
 		Timestamp now = Timestamp.now();
 		payinRecord.setUpdateTime(now);
 		return payinRecordRepository.save(payinRecord);
 	}
-	
+
 	public List<PayinRecord> findByRefId(String refId) {
 		return payinRecordRepository.findByRefId(refId);
 	}
-	
+
 	public PayinRecord findById(String payinRecordId) {
 		return payinRecordRepository.findById(payinRecordId).orElseThrow(() -> new DataNotFoundException());
 	}
