@@ -28,61 +28,58 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class PayinPaStoreUsecase {
-	
-    private final PayinPaRouteUsecase payinPaRouteUsecase;
-    private final PayinEvent payinEvent;
-    private final TransactionTemplate transactionTemplate;
+
+	private final PayinPaRouteUsecase payinPaRouteUsecase;
+	private final PayinEvent payinEvent;
+	private final TransactionTemplate transactionTemplate;
 	private final PayinStoreService payinStoreService;
 	private final PayinQueryService payinQueryService;
 
 	public PaPaymentDto initiatePaPayment(InitiatePaymentReq req) {
 		String orderGid = Generators.timeBasedEpochGenerator().generate().toString();
-//		String orderGid = "123";
+		// String orderGid = "123";
 		String rechargeGid = Generators.timeBasedEpochGenerator().generate().toString();
 		String userGid = req.getUserGid();
 		String refId = req.getRefId();
 		String rechargeInfo = req.getRechargeInfo();
 		BigDecimal actualPaymentAmount = req.getActualPaymentAmount();
 		PaPaymentDto paPaymentDto = new PaPaymentDto();
-		try(ExecutorService execute = Executors.newVirtualThreadPerTaskExecutor()){
-			// 1. user是否存在(這裡跳過)
-			// 2. 檢查金額是否正確並且檢查billid是否存在
-			// 3. init paycore order單
-			FirePaValidatedEvent event = FirePaValidatedEvent.builder()
-					.userGid(userGid)
-					.orderGid(orderGid)
-					.rechargeGid(rechargeGid)
-					.refId(refId)
-					.actualPaymentAmount(actualPaymentAmount)
-					.billAmount(new BigDecimal("199.00"))
-					.rechargeInfo(rechargeInfo)
-					.build();
-			payinEvent.firePaValidated(event);
-			// 3. choice channel -> call甲方 and save payin
-			ExecutePaDto executePaDto = ExecutePaDto.builder()
-					.orderGid(orderGid)
-					.rechargeGid(rechargeGid)
-					.userGid(userGid)
-					.billGid(req.getBillGid())
-					.refId(refId)
-					.actualPaymentAmount(actualPaymentAmount)
-					.rechargeInfo(rechargeInfo)
-					.build();
-			payinPaRouteUsecase.executePa(executePaDto);
-		} catch(Exception e) {
-			e.printStackTrace();
-			throw new DataErrorException("並行查詢出現error!");
-		}
+		// 1. user是否存在(這裡跳過)
+		// 2. 檢查金額是否正確並且檢查billid是否存在
+		// 3. init paycore order單
+		FirePaValidatedEvent event = FirePaValidatedEvent.builder()
+				.userGid(userGid)
+				.orderGid(orderGid)
+				.rechargeGid(rechargeGid)
+				.refId(refId)
+				.actualPaymentAmount(actualPaymentAmount)
+				// 先假資料因為這要看實際Biller金額
+				.billAmount(new BigDecimal("199.00"))
+				.rechargeInfo(rechargeInfo)
+				.build();
+		payinEvent.firePaValidated(event);
+		// 3. choice channel -> call甲方 and save payin
+		// 這裡因為需求目前狀況不需要原子性
+		ExecutePaDto executePaDto = ExecutePaDto.builder()
+				.orderGid(orderGid)
+				.rechargeGid(rechargeGid)
+				.userGid(userGid)
+				.billGid(req.getBillGid())
+				.refId(refId)
+				.actualPaymentAmount(actualPaymentAmount)
+				.rechargeInfo(rechargeInfo)
+				.build();
+		payinPaRouteUsecase.executePa(executePaDto);
 		return paPaymentDto;
 	}
-	
+
 	public void handlePaCallback(CallbackDto dto) {
 		// 1. apapter to handle callback
 		final CallbackPaDto callbackPaDto = payinPaRouteUsecase.handleCallbackData(dto);
 		PayinBo payinBo = transactionTemplate.execute(status -> {
 			// 2. findpayin record and attempt
 			PayinBo bo = payinQueryService.queryPayinBo(callbackPaDto.getRefId());
-			if(!bo.hasOrder()) {
+			if (!bo.hasOrder()) {
 				// 3-1. save retry callback
 				FireCallbackFailedEvent event = FireCallbackFailedEvent.builder()
 						.refId(callbackPaDto.getRefId())
@@ -106,7 +103,7 @@ public class PayinPaStoreUsecase {
 				.payinBo(payinBo)
 				.build();
 		final CallbackPaDto callbackPaDtoSync = payinPaRouteUsecase.syncOrderStatus(syncOrderDto);
-		
+
 		transactionTemplate.execute(status -> {
 			// 8. find and guard payin bo
 			PayinBo bo = payinQueryService.querySyncOrder(syncOrderDto);
@@ -120,5 +117,5 @@ public class PayinPaStoreUsecase {
 			return null;
 		});
 	}
-	
+
 }
