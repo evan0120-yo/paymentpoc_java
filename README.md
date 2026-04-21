@@ -70,7 +70,9 @@ username = postgres
 password = 12345678
 ```
 
-建議用 Docker 起一個：
+> 注意：`12345678` 只是範例密碼，請自行改成你本機 Postgres 的實際密碼（或反過來把本機 Postgres 密碼設成這個值）。`application-local.properties` 與 `application-prod.properties` 裡的 `spring.datasource.password` 也請一起改。
+
+建議用 Docker 起一個（密碼自行替換）：
 
 ```
 docker run -d --name pg-paymentpoc -e POSTGRES_PASSWORD=12345678 -p 5432:5432 postgres:16
