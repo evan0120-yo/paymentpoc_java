@@ -1,4 +1,4 @@
-package com.citrus.biller.concumer;
+package com.citrus.payCore.consumer;
 
 import java.nio.charset.StandardCharsets;
 
@@ -9,26 +9,37 @@ import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.springframework.stereotype.Component;
 
+import com.citrus.payCore.object.dto.PayCoreRechargeSuccessDto;
+import com.citrus.payCore.usecase.store.PayCoreStoreUsecase;
+import com.google.gson.Gson;
+
+import lombok.RequiredArgsConstructor;
+
 @Component
+@RequiredArgsConstructor
 @RocketMQMessageListener(
-		topic = "paycore-recharge-success-topic",
-		consumerGroup = "biller-recharge-success-group",
+		topic = "payin-callback-success-topic",
+		consumerGroup = "paycore-callback-success-group",
 		selectorExpression = "*",
 		consumeMode = ConsumeMode.CONCURRENTLY,
 		messageModel = MessageModel.CLUSTERING
 )
-public class BillerEventConsumer implements RocketMQListener<MessageExt> {
+public class PaycoreCallbackSuccessConsumer implements RocketMQListener<MessageExt> {
+
+	private final PayCoreStoreUsecase payCoreStoreUsecase;
 
 	@Override
 	public void onMessage(MessageExt msg) {
 		String jsonPayload = new String(msg.getBody(), StandardCharsets.UTF_8);
-		System.out.println("==========> 💰 Biller 收到新事件! <==========");
+		System.out.println("==========> PayCore 收到 CALLBACK_SUCCESS 事件! <==========");
 		System.out.println("訊息屬性 (tag/keys): tag=" + msg.getTags() + ", keys=" + msg.getKeys()
 				+ ", aggregateType=" + msg.getUserProperty("aggregateType")
 				+ ", outboxId=" + msg.getUserProperty("outboxId"));
 		System.out.println("事件內容 (Payload): " + jsonPayload);
 
-		// TODO: 驗證 properties、反序列化 payload、呼叫 use case 等
+		Gson gson = new Gson();
+		PayCoreRechargeSuccessDto eventDto = gson.fromJson(jsonPayload, PayCoreRechargeSuccessDto.class);
+		payCoreStoreUsecase.handleRechargeSuccess(eventDto);
 		System.out.println("...訊息業務邏輯處理成功...");
 	}
 }

@@ -2,13 +2,16 @@ package com.citrus.common.publisher.abs;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
+import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.producer.SendStatus;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 
 import com.citrus.common.model.Outbox;
 import com.citrus.common.publisher.EventPublisher;
-import com.google.cloud.spring.pubsub.core.publisher.PubSubPublisherTemplate;
 import com.google.gson.Gson;
 
 import lombok.RequiredArgsConstructor;
@@ -17,28 +20,33 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public abstract class EventPublisherAbs implements EventPublisher {
 
-	protected final PubSubPublisherTemplate publisherTemplate;
+	private static final long SEND_TIMEOUT_MS = 3000L;
+
+	protected final RocketMQTemplate rocketMQTemplate;
 
 	@Override
 	public void process(Outbox outbox) {
 		Gson gson = new Gson();
-		// --- 準備「信封上的標籤」(Attributes Map) ---
-		Map<String, String> attributes = new HashMap<>();
-		attributes.put("aggregateType", outbox.getAggregateType());
-		attributes.put("eventType", outbox.getEventType());
-		attributes.put("id", outbox.getId());
+		// --- 準備 headers（對應 Pub/Sub 的 attributes）---
+		Map<String, Object> headers = new HashMap<>();
+		headers.put("aggregateType", outbox.getAggregateType());
+		headers.put("outboxId", outbox.getId());
+		// RocketMQ 用 KEYS 做訊息檢索鍵，對齊 outbox id 方便追查
+		headers.put(org.apache.rocketmq.spring.support.RocketMQHeaders.KEYS, outbox.getId());
 
-		// --- 準備「箱子裡的貨物」(Payload JSON String) ---
+		// --- destination = topic:tag，tag 用 eventType 方便消費端過濾與觀測 ---
+		String destination = outbox.getTopicId() + ":" + outbox.getEventType();
+
+		// --- payload 走 JSON string，與原本 Pub/Sub payload 行為一致 ---
 		String jsonPayload = gson.toJson(outbox);
-		CompletableFuture<String> future = publisherTemplate.publish(outbox.getTopicId(), jsonPayload, attributes);
-		try {
-			// 改為同步等待 (Block)，確保發送成功才繼續
-			String messageId = future.get();
-			System.out.println("成功發布事件到 GCP Pub/Sub。Outbox ID: " + outbox.getId() + ", Message ID: " + messageId);
-		} catch (Exception e) {
-			// 發送失敗，拋出 RuntimeException 讓外層 Transaction Rollback
-			System.err.println("發布事件到 GCP Pub/Sub 失敗！Outbox ID:" + outbox.getId() + ", 原因: " + e.getMessage());
-			throw new RuntimeException("Publish failed for Outbox ID: " + outbox.getId(), e);
+		Message<String> message = MessageBuilder.withPayload(jsonPayload).copyHeaders(headers).build();
+
+		SendResult result = rocketMQTemplate.syncSend(destination, message, SEND_TIMEOUT_MS);
+		if (result == null || result.getSendStatus() != SendStatus.SEND_OK) {
+			String status = result == null ? "null" : result.getSendStatus().name();
+			System.err.println("發布事件到 RocketMQ 失敗！Outbox ID:" + outbox.getId() + ", status: " + status);
+			throw new RuntimeException("Publish failed for Outbox ID: " + outbox.getId() + ", status: " + status);
 		}
+		System.out.println("成功發布事件到 RocketMQ。Outbox ID: " + outbox.getId() + ", Message ID: " + result.getMsgId());
 	}
 }

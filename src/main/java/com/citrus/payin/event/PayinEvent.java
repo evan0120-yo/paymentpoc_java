@@ -7,7 +7,7 @@ import com.citrus.payin.object.event.FireCallbackFailedEvent;
 import com.citrus.payin.object.event.FireCallbackSucceededEvent;
 import com.citrus.payin.object.event.FirePaValidatedEvent;
 import com.citrus.payin.usecase.store.PayinOutboxStoreUsecasae;
-import com.citrus.share.enums.PubSubEnum;
+import com.citrus.share.enums.TopicEnum;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,14 +21,14 @@ public class PayinEvent {
 		System.out.println("firePaValidated, :"+event);
 		// 1. publish to paycore
 		event.setEventType(PayinEventEnum.RECHARGE_INIT.name());
-		event.setTopicId(PubSubEnum.INIT_EVENT.getTopicId());
+		event.setTopicId(TopicEnum.INIT_EVENT.getTopicId());
 		payinOutboxStoreUsecasae.firePaValidated(event);
 	}
 	
 	public void fireCallbackSucceeded(FireCallbackSucceededEvent event) {
 		System.out.println("fireCallbackSucceeded, :"+event);
 		event.setEventType(PayinEventEnum.CALLBACK_SUCCESSED.name());
-		event.setTopicId(PubSubEnum.CALLBACK_SUCCESS.getTopicId());
+		event.setTopicId(TopicEnum.CALLBACK_SUCCESS.getTopicId());
 		payinOutboxStoreUsecasae.saveCallbackSuccess(event);
 	}
 	

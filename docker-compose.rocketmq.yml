@@ -1,0 +1,48 @@
+version: "3.8"
+
+# 本機 RocketMQ 開發環境
+# 用法：
+#   docker compose -f docker-compose.rocketmq.yml up -d
+#   docker compose -f docker-compose.rocketmq.yml down
+
+services:
+  rmqnamesrv:
+    image: apache/rocketmq:5.3.1
+    container_name: rmqnamesrv
+    ports:
+      - "9876:9876"
+    environment:
+      - JAVA_OPT_EXT=-Xms256m -Xmx256m -Xmn128m
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: sh mqnamesrv
+
+  rmqbroker:
+    image: apache/rocketmq:5.3.1
+    container_name: rmqbroker
+    ports:
+      - "10909:10909"
+      - "10911:10911"
+      - "10912:10912"
+    depends_on:
+      - rmqnamesrv
+    environment:
+      - NAMESRV_ADDR=rmqnamesrv:9876
+      - JAVA_OPT_EXT=-Xms512m -Xmx512m -Xmn256m
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./docker/rocketmq/broker.conf:/home/rocketmq/rocketmq-5.3.1/conf/broker.conf
+    command: sh mqbroker -c /home/rocketmq/rocketmq-5.3.1/conf/broker.conf
+
+  rmqdashboard:
+    image: apacherocketmq/rocketmq-dashboard:1.0.0
+    container_name: rmqdashboard
+    ports:
+      - "8180:8080"
+    depends_on:
+      - rmqnamesrv
+    environment:
+      - JAVA_OPTS=-Drocketmq.namesrv.addr=rmqnamesrv:9876
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -15,7 +15,7 @@ import com.citrus.payCore.object.req.RechargeRetrySaveReq;
 import com.citrus.payCore.usecase.query.RechargeRetryQueryUsecase;
 import com.citrus.payCore.usecase.store.PayCoreOutboxStoreUsecase;
 import com.citrus.payCore.usecase.store.RechargeRetryStoreUsecase;
-import com.citrus.share.enums.PubSubEnum;
+import com.citrus.share.enums.TopicEnum;
 
 import lombok.RequiredArgsConstructor;
 
@@ -43,14 +43,14 @@ public class PaycoreEvent {
 				.rechargeInfo(bbpsRecharge.getRechargeInfo())
 				.build();
 		event.setEventType(PayCoreEventEnum.RECHARGE_SUCCEEDED.name());
-		event.setTopicId(PubSubEnum.RECHARGE_SUCCESS.getTopicId());
+		event.setTopicId(TopicEnum.RECHARGE_SUCCESS.getTopicId());
 		payCoreOutboxStoreUsecase.saveRechargeSuccess(event);
 	}
 	
 	public void fireOrderNotFound(FireOrderNotFoundEvent event) {
 		System.out.println("fireOrderNotFound, event:"+event);
 //		event.setEventType(PayCoreEventEnum.RECHARGE_SUCCEEDED.name());
-//		event.setTopicId(PubSubEnum.RECHARGE_SUCCESS.getTopicId());
+//		event.setTopicId(TopicEnum.RECHARGE_SUCCESS.getTopicId());
 		// 1. findByRefId
 		Optional<RechargeRetry> rechargeRetryOpt = rechargeRetryQueryUsecase.findByRefId(event.getRefId());
 		// 2. save in database for retry
